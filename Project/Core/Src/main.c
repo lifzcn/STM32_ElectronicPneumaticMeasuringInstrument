@@ -24,7 +24,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdio.h"
+#include "oled.h"
+#include "bmp280.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,7 +47,10 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+BMP280_HandleTypedef bmp280;
+float pressure, temperature, humidity;
+uint16_t sizeValue;
+uint8_t dataValue[256];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,7 +71,9 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	uint8_t x = 0;
+	uint8_t y = 0;
+	float pressureValue = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -91,13 +98,67 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-
+	OLED_Init();
+	OLED_Clear();
+	OLED_ShowChinese(x + 8 + 16 * 0, y + 2 * 0, 0);
+	OLED_ShowChinese(x + 8 + 16 * 1, y + 2 * 0, 1);
+	OLED_ShowChinese(x + 8 + 16 * 2, y + 2 * 0, 2);
+	OLED_ShowChinese(x + 8 + 16 * 3, y + 2 * 0, 3);
+	OLED_ShowChinese(x + 8 + 16 * 4, y + 2 * 0, 4);
+	OLED_ShowChinese(x + 8 + 16 * 5, y + 2 * 0, 5);
+	OLED_ShowChinese(x + 8 + 16 * 6, y + 2 * 0, 6);
+	OLED_ShowChinese(x + 16 * 0, y + 2 * 2, 7);
+	OLED_ShowChinese(x + 16 * 1, y + 2 * 2, 8);
+	OLED_ShowChinese(x + 16 * 2, y + 2 * 2, 9);
+	OLED_ShowChinese(x + 16 * 3, y + 2 * 2, 10);
+	OLED_ShowChar(x + 16 * 4 + 8 * 0, y + 2 * 2, ':', 16);
+	
+	bmp280_init_default_params(&bmp280.params);
+	bmp280.addr = BMP280_I2C_ADDRESS_0;
+	bmp280.i2c = &hi2c1;
+	while (!bmp280_init(&bmp280, &bmp280.params)) {
+		sizeValue = sprintf((char *)dataValue, "BMP280 initialization failed\n");
+		HAL_UART_Transmit(&huart1, dataValue, sizeValue, 1000);
+		HAL_Delay(2000);
+	}
+	bool bme280p = bmp280.id == BME280_CHIP_ID;
+	sizeValue = sprintf((char *)dataValue, "BMP280: found %s\n", bme280p?"BME280":"BMP280");
+	HAL_UART_Transmit(&huart1, dataValue, sizeValue, 1000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+		while(!bmp280_read_float(&bmp280, &temperature, &pressure, &humidity))
+		{
+			sizeValue = sprintf((char *)dataValue, "Temperature/pressure reading failed!\n");
+			// HAL_UART_Transmit(&huart1, dataValue, sizeValue, 1000);
+			HAL_Delay(2000);
+		}
+		sizeValue = sprintf((char *)dataValue,"Pressure: %.2f Pa, Temperature: %.2f C", pressure, temperature);
+		// HAL_UART_Transmit(&huart1, dataValue, sizeValue, 1000);
+		if(bme280p)
+		{
+			sizeValue = sprintf((char *)dataValue,", Humidity: %.2f\n", humidity);
+			// HAL_UART_Transmit(&huart1, dataValue, sizeValue, 1000);
+		}
+		else
+		{
+			sizeValue = sprintf((char *)dataValue, "\n");
+			// HAL_UART_Transmit(&huart1, dataValue, sizeValue, 1000);
+		}
+		pressureValue = pressure;
+		OLED_ShowNum(x + 16 * 4 + 8 * 1, y + 2 * 2, pressureValue/1000, 4, 16);
+		OLED_ShowChar(x + 16 * 4 + 8 * 5, y + 2 * 2, 'k', 16);
+		OLED_ShowChar(x + 16 * 4 + 8 * 6, y + 2 * 2, 'P', 16);
+		OLED_ShowChar(x + 16 * 4 + 8 * 7, y + 2 * 2, 'a', 16);
+		
+		printf("--------------------\n");
+		printf("当前压强为：%.2f kPa\n", pressureValue/1000);
+		printf("--------------------\n");
+		
+		HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
